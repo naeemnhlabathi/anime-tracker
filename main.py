@@ -1,20 +1,25 @@
 """
 Anime Tracker - main application window.
 
-Step 2: search box + results display, wired up to the AniList API.
+Step 3: search + save shows to a personal watchlist (stored in watchlist.json).
 """
 
 import tkinter as tk
 from tkinter import messagebox
 
 from api import search_anime
+from tracker import load_list, save_show, remove_show
+
+current_result = None  # holds the last searched show, so Save knows what to save
 
 
 def perform_search():
+    global current_result
     title = search_entry.get().strip()
     if not title:
         return
 
+    current_result = None
     result_text.delete("1.0", tk.END)
     result_text.insert(tk.END, "Searching...")
     root.update_idletasks()  # show "Searching..." before the request blocks the UI
@@ -47,11 +52,60 @@ def perform_search():
     )
     result_text.insert(tk.END, display)
 
+    # Stash what we need to save, separate from the raw API result
+    current_result = {
+        "title": show_title,
+        "episodes": episodes_display,
+        "genres": genres,
+    }
+
+
+def save_current():
+    if current_result is None:
+        messagebox.showinfo("Nothing to save", "Search for a show first.")
+        return
+
+    added = save_show(current_result)
+    if added:
+        messagebox.showinfo("Saved", f"'{current_result['title']}' added to your list.")
+    else:
+        messagebox.showinfo("Already saved", f"'{current_result['title']}' is already on your list.")
+
+
+def open_my_list():
+    list_window = tk.Toplevel(root)
+    list_window.title("My List")
+    list_window.geometry("400x400")
+
+    shows = load_list()
+
+    if not shows:
+        tk.Label(list_window, text="No shows saved yet.").pack(pady=20)
+        return
+
+    for show in shows:
+        row = tk.Frame(list_window)
+        row.pack(fill=tk.X, padx=10, pady=4)
+
+        label_text = f"{show['title']}  ({show['episodes']} eps)"
+        tk.Label(row, text=label_text, anchor="w", wraplength=260, justify=tk.LEFT).pack(
+            side=tk.LEFT, fill=tk.X, expand=True
+        )
+
+        def make_remove_handler(title):
+            def handler():
+                remove_show(title)
+                list_window.destroy()
+                open_my_list()  # refresh the window
+            return handler
+
+        tk.Button(row, text="Remove", command=make_remove_handler(show["title"])).pack(side=tk.RIGHT)
+
 
 # --- Build the window ---
 root = tk.Tk()
 root.title("Anime Tracker")
-root.geometry("500x500")
+root.geometry("500x550")
 
 search_frame = tk.Frame(root)
 search_frame.pack(pady=10)
@@ -63,7 +117,16 @@ search_entry.bind("<Return>", lambda event: perform_search())  # Enter key also 
 search_button = tk.Button(search_frame, text="Search", command=perform_search)
 search_button.pack(side=tk.LEFT)
 
-result_text = tk.Text(root, wrap=tk.WORD, width=55, height=25)
+result_text = tk.Text(root, wrap=tk.WORD, width=55, height=22)
 result_text.pack(padx=10, pady=10)
+
+button_frame = tk.Frame(root)
+button_frame.pack(pady=5)
+
+save_button = tk.Button(button_frame, text="Save to My List", command=save_current)
+save_button.pack(side=tk.LEFT, padx=5)
+
+my_list_button = tk.Button(button_frame, text="View My List", command=open_my_list)
+my_list_button.pack(side=tk.LEFT, padx=5)
 
 root.mainloop()
