@@ -17,19 +17,29 @@ def perform_search():
     global current_result
     title = search_entry.get().strip()
     if not title:
+        messagebox.showinfo("Nothing to search", "Type a title first.")
         return
 
     current_result = None
     result_text.delete("1.0", tk.END)
     result_text.insert(tk.END, "Searching...")
+    search_button.config(state=tk.DISABLED)  # avoid double-clicks firing overlapping requests
     root.update_idletasks()  # show "Searching..." before the request blocks the UI
 
     try:
         result = search_anime(title)
-    except Exception as e:
+    except RuntimeError as e:
+        # Friendly errors raised deliberately in api.py (bad connection, rate limit, etc.)
         result_text.delete("1.0", tk.END)
-        messagebox.showerror("Error", f"Something went wrong:\n{e}")
+        messagebox.showerror("Search failed", str(e))
         return
+    except Exception as e:
+        # Anything unexpected we didn't plan for
+        result_text.delete("1.0", tk.END)
+        messagebox.showerror("Unexpected error", f"Something went wrong:\n{e}")
+        return
+    finally:
+        search_button.config(state=tk.NORMAL)
 
     result_text.delete("1.0", tk.END)
 

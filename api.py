@@ -26,15 +26,32 @@ query ($search: String) {
 
 
 def search_anime(title):
-    """Search for an anime by title, return the top match as a dict (or None)."""
+    """Search for an anime by title, return the top match as a dict (or None).
+
+    Raises a plain-English RuntimeError on network problems, so the GUI
+    can show something a user can actually understand instead of a
+    raw requests/connection traceback.
+    """
     variables = {"search": title}
 
-    response = requests.post(
-        ANILIST_URL,
-        json={"query": SEARCH_QUERY, "variables": variables},
-        timeout=10,
-    )
-    response.raise_for_status()
+    try:
+        response = requests.post(
+            ANILIST_URL,
+            json={"query": SEARCH_QUERY, "variables": variables},
+            timeout=10,
+        )
+    except requests.exceptions.Timeout:
+        raise RuntimeError("The request timed out. Check your internet connection and try again.")
+    except requests.exceptions.ConnectionError:
+        raise RuntimeError("Couldn't reach AniList. Check your internet connection.")
+
+    if response.status_code == 429:
+        raise RuntimeError("Too many searches too quickly - wait a few seconds and try again.")
+
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError:
+        raise RuntimeError(f"AniList returned an error (status {response.status_code}). Try again in a moment.")
 
     data = response.json()
     return data.get("data", {}).get("Media")
