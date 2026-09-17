@@ -20,6 +20,9 @@ query ($search: String) {
     episodes
     genres
     description(asHtml: false)
+    coverImage {
+      medium
+    }
   }
 }
 """
