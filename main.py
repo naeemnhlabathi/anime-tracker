@@ -4,7 +4,6 @@ Anime Tracker - main application window.
 Step 5: cover images, a watch-status tag, and cleaner spacing.
 """
 
-import base64
 import io
 
 import tkinter as tk
@@ -17,6 +16,8 @@ from api import search_anime
 from tracker import load_list, save_show, remove_show
 
 STATUS_OPTIONS = ["Plan to Watch", "Watching", "Completed"]
+
+COVER_MAX_SIZE = (120, 170)  # (width, height) in pixels - used for both the thumbnail and the label box
 
 current_result = None  # holds the last searched show, so Save knows what to save
 cover_image = None  # keeps a reference to the current PhotoImage (Tkinter needs this or it gets garbage collected)
@@ -34,7 +35,7 @@ def fetch_cover_image(url):
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         image = Image.open(io.BytesIO(response.content))
-        image.thumbnail((120, 170))  # keep it a reasonable size next to the results box
+        image.thumbnail(COVER_MAX_SIZE)
         return ImageTk.PhotoImage(image)
     except Exception:
         # A missing/broken cover image shouldn't break the whole search
@@ -182,7 +183,9 @@ status_dropdown.pack(side=tk.LEFT)
 content_frame = tk.Frame(root)
 content_frame.pack(padx=15, pady=5, fill=tk.BOTH, expand=True)
 
-cover_label = tk.Label(content_frame, width=15, height=8, bg="gray90")
+# width/height here are in PIXELS because this label displays an image, not text -
+# must match (or exceed) COVER_MAX_SIZE above, or the image gets squashed into a tiny box
+cover_label = tk.Label(content_frame, width=COVER_MAX_SIZE[0], height=COVER_MAX_SIZE[1], bg="gray90")
 cover_label.pack(side=tk.LEFT, anchor="n", padx=(0, 10))
 
 result_text = tk.Text(content_frame, wrap=tk.WORD, width=45, height=22)
